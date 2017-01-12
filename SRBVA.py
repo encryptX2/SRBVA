@@ -75,6 +75,7 @@ def getPixelsInWindow(workImage, startX, startY, winDim):
 	if maxY > width:
 		maxY = width
 
+	# TODO : fix this shit cuz it crashes
 	for x in range(startX, maxX):
 		for y in range(startY, maxY):
 			window.append(pixels[startX*winDim + x, startY*winDim + y])
@@ -93,6 +94,8 @@ def getAdaptiveThreshImg(image, winDim):
 		for y in range(0, vertWinNr):
 			# lista cu pixelii din fereastra x, y
 			window = getPixelsInWindow(workImage, x, y, winDim)
+			# TODO : foloseste fereastra pentru a calcula thresholdul
+			# si aplica-l pixelilor din fereastra
 	return
 
 # Entrypoint
