@@ -20,7 +20,7 @@ import sys
 import math
 
 DEFAULT_FILE = "numbers.jpg"
-DEFAULT_DIM  = 40
+DEFAULT_DIM  = 45
 
 GLOBAL_THRESHOLD_LOW = 50
 GLOBAL_THRESHOLD_MED = 125
@@ -61,7 +61,7 @@ def thresholdImageArea(image, startPoint, endPoint, threshValue):
 	pixels = image.load()
 	for x in range(startPoint[0], endPoint[0]):
 		for y in range(startPoint[1], endPoint[1]):
-			if pixels[x, y][0] > threshValue:
+			if pixels[x, y][0] >= threshValue:
 				pixels[x, y] = (255, 255)
 			else:
 				pixels[x, y] = (0, 255)
@@ -113,8 +113,8 @@ def getAdaptiveThreshImg(image, winDim):
 	pixels = workImage.load()
 	width, height = workImage.size
 	# Numarul de ferestre ce se vor aplica pe orizontala/verticala
-	horizWinNr = int(math.ceil( width / winDim ))
-	vertWinNr = int(math.ceil( height / winDim ))
+	horizWinNr = int(math.ceil( width *1.0 / winDim ))
+	vertWinNr = int(math.ceil( height *1.0 / winDim ))
 	for x in range(0, horizWinNr):
 		for y in range(0, vertWinNr):
 			# lista cu pixelii din fereastra x, y
@@ -131,7 +131,7 @@ def main():
 	# Incarcarea imaginii de intrare
 	im = getInputImage()
 	# Afisarea imaginii de intrare
-	# im.show()
+	im.show()
 	# Afisarea imaginilor segmentate cu valoare globala
 	# raw_input("[ENTER] pentru a continua...")
 	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_LOW))
