@@ -47,7 +47,7 @@ def main():
 	# imGTHigh.show()
 	raw_input("[ENTER] pentru a continua...")
 	# Obtine dimensiunea ferestrei
-	winDim = getWindowDimension()
+	winDim = int( getWindowDimension() )
 	# Afisarea imaginilor segmentate cu threshold adaptiv
 	imAdapThresh = getAdaptiveThreshImg(im, winDim)
 	imAdapThresh.show()
