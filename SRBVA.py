@@ -20,7 +20,7 @@ import sys
 import math
 
 DEFAULT_FILE = "numbers.jpg"
-DEFAULT_DIM  = 10
+DEFAULT_DIM  = 40
 
 GLOBAL_THRESHOLD_LOW = 50
 GLOBAL_THRESHOLD_MED = 125
@@ -52,34 +52,59 @@ def getWindowDimension():
 # Obtine o copie a imaginii image, segmentata cu valoarea globalThresh
 def getGlobalThreshImg(image, globalThresh):
 	workImage = image.copy()
-	pixels = workImage.load()
 	width, height = workImage.size
-	for x in range(0, width):
-		for y in range(0, height):
-			if pixels[x, y][0] > globalThresh:
+	
+	return thresholdImageArea(workImage, (0, 0), (width, height), globalThresh)
+
+# Segmenteaza imaginea image intre startPoint si endPoint cu valoarea threshValue
+def thresholdImageArea(image, startPoint, endPoint, threshValue):
+	pixels = image.load()
+	for x in range(startPoint[0], endPoint[0]):
+		for y in range(startPoint[1], endPoint[1]):
+			if pixels[x, y][0] > threshValue:
 				pixels[x, y] = (255, 255)
 			else:
 				pixels[x, y] = (0, 255)
-	return workImage
+	return image
 
-def getPixelsInWindow(workImage, startX, startY, winDim):
-	pixels = workImage.load()
+
+def getMaxWinDimensions(workImage, window):
 	width, height = workImage.size
-	window = []
 
-	maxX = startX * winDim + winDim
+	maxX = (window["winX"] +1) * window["winDim"]
 	if maxX > width:
 		maxX = width
 
-	maxY = startY * winDim + winDim
-	if maxY > width:
-		maxY = width
+	maxY = (window["winY"] +1) * window["winDim"]
+	if maxY > height:
+		maxY = height
+	return maxX, maxY
+
+def getPixelsInWindow(workImage, window):
+	pixels = workImage.load()
+	maxX, maxY = getMaxWinDimensions(workImage, window)
+	
+	windowPixels = []
 
 	# TODO : fix this shit cuz it crashes
-	for x in range(startX, maxX):
-		for y in range(startY, maxY):
-			window.append(pixels[startX*winDim + x, startY*winDim + y])
-	return window
+	for x in range(window["winX"] * window["winDim"], maxX):
+		for y in range(window["winY"] * window["winDim"], maxY):
+			windowPixels.append(pixels[ x, y])
+	return windowPixels
+
+# Obtine valoarea thresholdului ce va fi aplicat ferestrei
+# Metoda de obtinere a thresholdului folosind media pixelilor
+def getThresholdForWindow(window):
+	pixelSum = 0
+	for i in range(len(window)):
+		pixelSum += window[i][0]
+	return int( math.floor( pixelSum / len(window) ) )
+
+# Aplica valoarea thresh ferestrei
+def applyThresholdToWindow(image, thresh, window):
+	maxX, maxY = getMaxWinDimensions(image, window)
+	thresholdImageArea(image, (window["winX"] * window["winDim"], window["winY"] * window["winDim"]), (maxX, maxY), thresh);
+	return image
 
 # Obtine o copie a imaginii image, segmentata cu o valoare de
 # threshold calculata pentru ferestre de winDim x winDim pixeli
@@ -93,17 +118,20 @@ def getAdaptiveThreshImg(image, winDim):
 	for x in range(0, horizWinNr):
 		for y in range(0, vertWinNr):
 			# lista cu pixelii din fereastra x, y
-			window = getPixelsInWindow(workImage, x, y, winDim)
+			window = {"winX" : x, "winY" : y, "winDim" : winDim}
+			windowPixels = getPixelsInWindow(workImage, window)
+			thresh = getThresholdForWindow( windowPixels )
+			applyThresholdToWindow(workImage, thresh, window)
 			# TODO : foloseste fereastra pentru a calcula thresholdul
 			# si aplica-l pixelilor din fereastra
-	return
+	return workImage
 
 # Entrypoint
 def main():
 	# Incarcarea imaginii de intrare
 	im = getInputImage()
 	# Afisarea imaginii de intrare
-	#im.show()
+	# im.show()
 	# Afisarea imaginilor segmentate cu valoare globala
 	# raw_input("[ENTER] pentru a continua...")
 	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_LOW))
@@ -122,7 +150,7 @@ def main():
 	winDim = getWindowDimension()
 	# Afisarea imaginilor segmentate cu threshold adaptiv
 	imAdapThresh = getAdaptiveThreshImg(im, winDim)
-
+	imAdapThresh.show()
 	return
 
 main()
