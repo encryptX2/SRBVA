@@ -51,7 +51,22 @@ def main():
 	# Afisarea imaginilor segmentate cu threshold adaptiv
 	imAdapThresh = getAdaptiveThreshImg(im, winDim)
 	imAdapThresh.show()
+	
+	imHistogram = histogram(im)
+	print(imHistogram)
+	
+	raw_input("[ENTER] pentru a continua...")
+	threshold = otsu_thrd(im)
+	print(threshold)
+	
+	raw_input("[ENTER] pentru a continua...")
+	otsuIm = segment(im, threshold)
+	otsuIm.show()
+	
+	
+	
 	return
+
 
 # Functie utilitara pentru a gasi valori ale comenzilor -f, -d
 def getArgVal(argCommand):
@@ -155,5 +170,61 @@ def getAdaptiveThreshImg(image, winDim):
 			# TODO : foloseste fereastra pentru a calcula thresholdul
 			# si aplica-l pixelilor din fereastra
 	return workImage
+
+def histogram(image):
+ 	pix =image.load()
+ 	width, height = image.size
+  	hist = [0]*256
+
+  	for y in range(height):
+   	 	for x in range(width):
+  	   		gray_level= pix[x, y][0]
+  	  	  	hist[gray_level] = hist[gray_level]+1
+  	return hist
+
+def otsu_thrd(image):
+	#prima data luam datele din histograma 
+ 	hist = histogram(image) 
+  	sum_all = 0
+  	width, height = image.size
+   	# sum the values of all background pixels
+   	for t in range(256):
+ 	   sum_all += t * hist[t]
+  	sum_back, w_back, w_fore, var_max, threshold = 0, 0, 0, 0, 0
+  	total = height*width 
+
+ 	# go over all possible thresholds
+  	for t in range(256):
+   		# update weights
+   		hist_data = histogram(image)
+   		w_back += hist_data[t]
+ 	   	if (w_back == 0): continue
+  	   	w_fore = total - w_back
+   	   	if (w_fore == 0) : break
+    	# calculate classes means
+		sum_back += t * hist_data[t]
+ 		mean_back = sum_back / w_back
+  		mean_fore = (sum_all - sum_back) / w_fore
+   		# Calculate Between Class Variance
+    	var_between = w_back * w_fore * (mean_back - mean_fore)**2 
+    	# a new maximum is found?
+	if(var_between > var_max):
+			var_max = var_between
+			threshold = t
+
+   	return threshold	
+   
+def segment(im, thrd = 128):
+    width, height = im.size
+    mat = im.load()
+    out = Image.new('1',(width, height)) 
+    out_pix = out.load()
+    for x in range(width): # go over the image columns
+ 	   for y in range(height): # go over the image rows
+ 		if mat[x, y] >= thrd: # compare to threshold
+  		   	out_pix[x, y] = 255
+   		else:
+   			out_pix[x, y] = 0
+    return out  
 
 main()
