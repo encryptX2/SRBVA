@@ -15,7 +15,8 @@
 #	Exemplu: seg_adap.py -d 15
 #####################################################################
 from __future__ import print_function
-from PIL import Image
+from Tkinter import *
+from PIL import Image, ImageTk
 import sys
 import math
 
@@ -31,7 +32,8 @@ def main():
 	# Incarcarea imaginii de intrare
 	im = getInputImage()
 	# Afisarea imaginii de intrare
-	im.show()
+	#im.show()
+	showImage("Imaginea initiala", im)
 	# Afisarea imaginilor segmentate cu valoare globala
 	# raw_input("[ENTER] pentru a continua...")
 	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_LOW))
@@ -45,12 +47,13 @@ def main():
 	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_HIGH))
 	# imGTHigh = getGlobalThreshImg(im, GLOBAL_THRESHOLD_HIGH)
 	# imGTHigh.show()
-	raw_input("[ENTER] pentru a continua...")
+	#raw_input("[ENTER] pentru a continua...")
 	# Obtine dimensiunea ferestrei
 	winDim = int( getWindowDimension() )
 	# Afisarea imaginilor segmentate cu threshold adaptiv
 	imAdapThresh = getAdaptiveThreshImg(im, winDim)
-	imAdapThresh.show()
+	showImage("Imaginea segmentata cu threshold adaptiv", imAdapThresh)
+	#imAdapThresh.show()
 	
 	imHistogram = histogram(im)
 	print(imHistogram)
@@ -65,6 +68,21 @@ def main():
 	
 	
 	
+	return
+
+# Afiseaza imaginea intr-o noua fereastra
+def showImage(title, img):
+	width, height = img.size
+	dispWindow = Tk()
+	dispWindow.title(title)
+	dispWindow.geometry(str(width + 100) + "x" + str(height + 30))
+	
+	p = ImageTk.PhotoImage(img)
+	l = Label(dispWindow, image = p)
+	l.image = p
+	l.place(x=50,y=15)
+
+	dispWindow.mainloop()
 	return
 
 
