@@ -7,21 +7,24 @@
 #
 # Argumente permise:
 # -f "Nume fisier" - numele fisierului ce va fi incarcat.
-#	Daca acest argument lipseste se va folosi fisierul DEFAULT_FILE
-#	Exemplu: seg_adap.py -f "fisier.jpg"
+# 	Daca acest argument lipseste se va folosi fisierul DEFAULT_FILE
+# 	Exemplu: seg_adap.py -f "fisier.jpg"
 #
 # -d DIM_WIN - dimensiunea ferestrei de segmentare
-#	Daca acest argument lipseste se va folosi dimensiunea DEFAULT_DIM
-#	Exemplu: seg_adap.py -d 15
+# 	Daca acest argument lipseste se va folosi dimensiunea DEFAULT_DIM
+# 	Exemplu: seg_adap.py -d 15
 #####################################################################
 from __future__ import print_function
+
 from Tkinter import *
-from PIL import Image, ImageTk
-import sys
 import math
+import sys
+
+from PIL import Image, ImageTk
+
 
 DEFAULT_FILE = "numbers.jpg"
-DEFAULT_DIM  = 15
+DEFAULT_DIM = 15
 
 GLOBAL_THRESHOLD_LOW = 50
 GLOBAL_THRESHOLD_MED = 125
@@ -32,7 +35,7 @@ def main():
 	# Incarcarea imaginii de intrare
 	im = getInputImage()
 	# Afisarea imaginii de intrare
-	#im.show()
+	# im.show()
 	showImage("Imaginea initiala", im)
 	# Afisarea imaginilor segmentate cu valoare globala
 	# raw_input("[ENTER] pentru a continua...")
@@ -47,27 +50,15 @@ def main():
 	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_HIGH))
 	# imGTHigh = getGlobalThreshImg(im, GLOBAL_THRESHOLD_HIGH)
 	# imGTHigh.show()
-	#raw_input("[ENTER] pentru a continua...")
+	# raw_input("[ENTER] pentru a continua...")
 	# Obtine dimensiunea ferestrei
-	winDim = int( getWindowDimension() )
+	winDim = int(getWindowDimension())
 	# Afisarea imaginilor segmentate cu threshold adaptiv
-	imAdapThresh = getAdaptiveThreshImg(im, winDim)
+	imAdapThresh, otsuAdapThresh = getAdaptiveThreshImg(im, winDim)
 	showImage("Imaginea segmentata cu threshold adaptiv", imAdapThresh)
-	#imAdapThresh.show()
-	
-	imHistogram = histogram(im)
-	print(imHistogram)
-	
-	raw_input("[ENTER] pentru a continua...")
-	threshold = otsu_thrd(im)
-	print(threshold)
-	
-	raw_input("[ENTER] pentru a continua...")
-	otsuIm = segment(im, threshold)
-	otsuIm.show()
-	
-	
-	
+	# imAdapThresh.show()
+	showImage("Imaginea segmentata cu threshold prin metoda Otsu", otsuAdapThresh)
+
 	return
 
 # Afiseaza imaginea intr-o noua fereastra
@@ -78,9 +69,9 @@ def showImage(title, img):
 	dispWindow.geometry(str(width + 100) + "x" + str(height + 30))
 	
 	p = ImageTk.PhotoImage(img)
-	l = Label(dispWindow, image = p)
+	l = Label(dispWindow, image=p)
 	l.image = p
-	l.place(x=50,y=15)
+	l.place(x=50, y=15)
 
 	dispWindow.mainloop()
 	return
@@ -90,7 +81,7 @@ def showImage(title, img):
 def getArgVal(argCommand):
 	for i in range(len(sys.argv)):
 		if sys.argv[i] == argCommand:
-			return sys.argv[i +1]
+			return sys.argv[i + 1]
 	return
 
 # Incarca fisierul specificat de argumentele de intrare
@@ -131,11 +122,11 @@ def thresholdImageArea(image, startPoint, endPoint, threshValue):
 def getMaxWinDimensions(workImage, window):
 	width, height = workImage.size
 
-	maxX = (window["winX"] +1) * window["winDim"]
+	maxX = (window["winX"] + 1) * window["winDim"]
 	if maxX > width:
 		maxX = width
 
-	maxY = (window["winY"] +1) * window["winDim"]
+	maxY = (window["winY"] + 1) * window["winDim"]
 	if maxY > height:
 		maxY = height
 	return maxX, maxY
@@ -162,7 +153,7 @@ def getThresholdForWindow(window):
 	pixelSum = 0
 	for i in range(len(window)):
 		pixelSum += window[i][0]
-	return int( math.floor( pixelSum / len(window) ) )
+	return int(math.floor(pixelSum / len(window)))
 
 # Aplica valoarea thresh ferestrei
 def applyThresholdToWindow(image, thresh, window):
@@ -173,76 +164,65 @@ def applyThresholdToWindow(image, thresh, window):
 # Obtine o copie a imaginii image, segmentata cu o valoare de
 # threshold calculata pentru ferestre de winDim x winDim pixeli
 def getAdaptiveThreshImg(image, winDim):
-	workImage = image.copy()
-	width, height = workImage.size
+	meanImage = image.copy()
+	otsuImage = image.copy()
+	width, height = meanImage.size
 	# Numarul de ferestre ce se vor aplica pe orizontala/verticala
-	horizWinNr = int(math.ceil( width *1.0 / winDim ))
-	vertWinNr = int(math.ceil( height *1.0 / winDim ))
+	horizWinNr = int(math.ceil(width * 1.0 / winDim))
+	vertWinNr = int(math.ceil(height * 1.0 / winDim))
 	for x in range(0, horizWinNr):
 		for y in range(0, vertWinNr):
 			# lista cu pixelii din fereastra x, y
 			window = {"winX" : x, "winY" : y, "winDim" : winDim}
-			windowPixels = getPixelsInWindow(workImage, window)
-			thresh = getThresholdForWindow( windowPixels )
-			applyThresholdToWindow(workImage, thresh, window)
+			windowPixels = getPixelsInWindow(meanImage, window)
+			thresh = getThresholdForWindow(windowPixels)
+			applyThresholdToWindow(meanImage, thresh, window)
+			
+			otsuThresh = getOtsuThreshForWindow(windowPixels)
+			applyThresholdToWindow(otsuImage, otsuThresh, window)
+			
 			# TODO : foloseste fereastra pentru a calcula thresholdul
 			# si aplica-l pixelilor din fereastra
-	return workImage
+	return meanImage, otsuImage
 
-def histogram(image):
- 	pix =image.load()
- 	width, height = image.size
-  	hist = [0]*256
+def histogram(windowPixels):
+	size = len(windowPixels)
+	hist = [0] * 256
 
-  	for y in range(height):
-   	 	for x in range(width):
-  	   		gray_level= pix[x, y][0]
-  	  	  	hist[gray_level] = hist[gray_level]+1
-  	return hist
+	for px in range(size):
+		gray_level = windowPixels[px][0]
+		hist[gray_level] = hist[gray_level] + 1
+	return hist
 
-def otsu_thrd(image):
-	#prima data luam datele din histograma 
- 	hist = histogram(image) 
-  	sum_all = 0
-  	width, height = image.size
-   	# sum the values of all background pixels
-   	for t in range(256):
- 	   sum_all += t * hist[t]
-  	sum_back, w_back, w_fore, var_max, threshold = 0, 0, 0, 0, 0
-  	total = height*width 
+def getOtsuThreshForWindow(windowPixels):
+	# prima data luam datele din histograma 
+	hist = histogram(windowPixels) 
+	sum_all = 0
+	# sum the values of all background pixels
+	for t in range(256):
+		sum_all += t * hist[t]
+		
+	sum_back, w_back, w_fore, var_max, threshold = 0, 0, 0, 0, 0
+	total = len(windowPixels)
 
- 	# go over all possible thresholds
-  	for t in range(256):
-   		# update weights
-   		hist_data = histogram(image)
-   		w_back += hist_data[t]
- 	   	if (w_back == 0): continue
-  	   	w_fore = total - w_back
-   	   	if (w_fore == 0) : break
-    	# calculate classes means
-		sum_back += t * hist_data[t]
- 		mean_back = sum_back / w_back
-  		mean_fore = (sum_all - sum_back) / w_fore
-   		# Calculate Between Class Variance
-    	var_between = w_back * w_fore * (mean_back - mean_fore)**2 
-    	# a new maximum is found?
-	if(var_between > var_max):
+	# go over all possible thresholds
+	for t in range(256):
+		# update weights
+		w_back += hist[t]
+		if (w_back == 0): continue
+		w_fore = total - w_back
+		if (w_fore == 0) : break
+		# calculate classes means
+		sum_back += t * hist[t]
+		mean_back = sum_back / w_back
+		mean_fore = (sum_all - sum_back) / w_fore
+		# Calculate Between Class Variance
+		var_between = w_back * w_fore * (mean_back - mean_fore) ** 2 
+		# a new maximum is found?
+		if(var_between > var_max):
 			var_max = var_between
 			threshold = t
 
-   	return threshold	
-   
-def segment(im, thrd = 128):
-    width, height = im.size
-    mat = im.load()
-    out = Image.new('1',(width, height)) 
-    out_pix = out.load()
-    for x in range(width): # go over the image columns
- 	   for y in range(height): # go over the image rows
- 		if mat[x, y] >= thrd: # compare to threshold
-  		   	out_pix[x, y] = 255
-   		else:
-   			out_pix[x, y] = 0
-    return out  
+	return threshold
 
 main()
