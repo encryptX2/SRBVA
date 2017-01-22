@@ -1,18 +1,21 @@
 #####################################################################
 # Proiect "Segmentarea prin threshold adaptiv"
 # Aplicatia va realiza segmentarea unei imagini de intrare:
-# 1. folosind 3 valori de threshold global
+# 1. folosind 3 valori de threshold global (pentru a evidentia performantele thresholdului global).
 # 2. folosind o fereastra de dimensiune dorita si doua tehnici
-# diferite pentru alegerea valorilor de treshhold.
+# 	 diferite pentru alegerea valorilor de treshhold in fereastra (prin media valorilor pixelilor 
+# 	 din fereastra si prin metoda Otsu).
+# 3. folosind un threshold calculat pentru fiecare pixel pe baza valorilor pixelilor din vecinatatea 
+#    acestuia.
 #
 # Argumente permise:
 # -f "Nume fisier" - numele fisierului ce va fi incarcat.
 # 	Daca acest argument lipseste se va folosi fisierul DEFAULT_FILE
-# 	Exemplu: seg_adap.py -f "fisier.jpg"
+# 	Exemplu: segAdap.py -f "fisier.jpg"
 #
 # -d DIM_WIN - dimensiunea ferestrei de segmentare
 # 	Daca acest argument lipseste se va folosi dimensiunea DEFAULT_DIM
-# 	Exemplu: seg_adap.py -d 15
+# 	Exemplu: segAdap.py -d 15
 #####################################################################
 from __future__ import print_function
 
@@ -23,7 +26,7 @@ import sys
 from PIL import Image, ImageTk
 from pip._vendor.pkg_resources import working_set
 
-
+# Parametrii default
 DEFAULT_FILE = "numbers.jpg"
 DEFAULT_DIM = 30
 
@@ -36,53 +39,70 @@ def main():
 	# Incarcarea imaginii de intrare
 	im = getInputImage()
 	# Afisarea imaginii de intrare
-	# im.show()
+	printProgress("Se afiseaza imaginea de intrare.")
 	showImage("Imaginea initiala", im)
+	
 	# Afisarea imaginilor segmentate cu valoare globala
-	# raw_input("[ENTER] pentru a continua...")
-	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_LOW))
-	# imGTLow = getGlobalThreshImg(im, GLOBAL_THRESHOLD_LOW)
-	# imGTLow.show()
-	# raw_input("[ENTER] pentru a continua...")
-	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_MED))
-	# imGTMed = getGlobalThreshImg(im, GLOBAL_THRESHOLD_MED)
-	# imGTMed.show()
-	# raw_input("[ENTER] pentru a continua...")
-	# print("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_HIGH))
-	# imGTHigh = getGlobalThreshImg(im, GLOBAL_THRESHOLD_HIGH)
-	# imGTHigh.show()
-	# raw_input("[ENTER] pentru a continua...")
+	printProgress("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_LOW))
+	imGTLow = getGlobalThreshImg(im, GLOBAL_THRESHOLD_LOW)
+	showImage("Imaginea segmentata cu Threshold = " + str(GLOBAL_THRESHOLD_LOW), imGTLow)
+
+	printProgress("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_MED))
+	imGTMed = getGlobalThreshImg(im, GLOBAL_THRESHOLD_MED)
+	showImage("Imaginea segmentata cu Threshold = " + str(GLOBAL_THRESHOLD_MED), imGTMed)
+
+	printProgress("Segmentare cu threshold global = " + str(GLOBAL_THRESHOLD_HIGH))
+	imGTHigh = getGlobalThreshImg(im, GLOBAL_THRESHOLD_HIGH)
+	showImage("Imaginea segmentata cu Threshold = " + str(GLOBAL_THRESHOLD_HIGH), imGTHigh)
+	
 	# Obtine dimensiunea ferestrei
 	winDim = int(getWindowDimension())
-	# Afisarea imaginilor segmentate cu threshold adaptiv
-	imAdapThresh, otsuAdapThresh = getAdaptiveThreshImg(im, winDim)
+	# Afisarea imaginilor segmentate cu threshold adaptiv calculat pe fereastra
+	imAdapThresh, otsuAdapThresh = getAdaptiveThreshImgs(im, winDim)
+	printProgress("Segmentare cu threshold adaptiv calculat per fereastra (prin medierea pixelilor)")
 	showImage("Imaginea segmentata cu threshold adaptiv", imAdapThresh)
-	# imAdapThresh.show()
+	
+	printProgress("Segmentare cu threshold adaptiv calculat per fereastra (prin metoda Otsu)")
 	showImage("Imaginea segmentata cu threshold prin metoda Otsu", otsuAdapThresh)
 	
 	# Imagine segmentata cu threshold calculat pe vecinatati de pixeli
-	imNeighbourAdap = getAdaptiveNeighbourImg(im, winDim)
-	showImage("Imaginea segmentata cu threshold calculat per pixel", imNeighbourAdap)
+	print("Se aplica metoda de calcul bazata pe vecinatati.")
+	print("Calculul poate necesita o perioada mai mare de timp.")
+	imVecinity = getAdaptiveVecinityImg(im, winDim)
+	printProgress("Segmentare cu threshold adaptiv calculat pentru fiecare pixel din imagine")
+	showImage("Imaginea segmentata cu threshold calculat per pixel", imVecinity)
 
 	return
 
-def getAdaptiveNeighbourImg(im, winDim):
+# Printeaza un mesaj dupa afisarea imaginilor
+def printProgress(message):
+	print(message)
+	print("[Inchideti imaginea pentru a continua]")
+
+# Obtine o imagine segmentata prin vecinatati de pixeli
+def getAdaptiveVecinityImg(im, winDim):
 	workImage = im.copy()
 	pixels = workImage.load()
 	width, height = workImage.size
 	for x in range(width):
 		for y in range(height):
-			thresh = getNeighbourThresh(x, y, im, winDim)
+			thresh = getVecinityThresh(x, y, im, winDim)
 			if pixels[x, y][0] > thresh:
 				pixels[x, y] = (255, 255)
 			else:
 				pixels[x, y] = (0, 255)
 	return workImage
 
-def getNeighbourThresh(crtX, crtY, im, winDim):
+# Obtine valoarea de threshold pentru metoda bazata pe vecinatati
+# Metoda presupune crearea unei ferestre de dimensiune winDim centrata
+# pe pixelul pentru care se calculeaza valoarea de threshold si calculul mediei
+# pixelilor din aceasta fereastra
+def getVecinityThresh(crtX, crtY, im, winDim):
 	pixels = im.load()
 	width, height = im.size
 	nrOfPixels, sumOfPixels = 0, 0
+	# Limiteaza fereastra in care se va calcula thresholdul 
+	# pentru a nu depasi marginile imaginii
 	lowerX = crtX - (winDim /2)
 	if( lowerX < 0 ): lowerX = 0
 		
@@ -95,18 +115,18 @@ def getNeighbourThresh(crtX, crtY, im, winDim):
 	higherY = crtY + (winDim / 2)
 	if( higherY >= height ): higherY = height
 	
-	
+	# Calculeaza suma valorilor pixelilor si numarul de pixeli din fereastra
 	for x in range( lowerX, higherX ):
 		for y in range( lowerY, higherY ):
-			# Testeaza pixelul curent pentru a nu-l lua in calcul
-			if( x == crtX and y == crtY ):
-				continue
 			nrOfPixels += 1
 			sumOfPixels += pixels[x, y][0]
 	
+	# Elimina din calcul pixelul pentru care se construieste thresholdul
+	sumOfPixels -= pixels[crtX, crtY][0]
+	nrOfPixels -= 1
 	return sumOfPixels / nrOfPixels
 
-# Afiseaza imaginea intr-o noua fereastra
+# Afiseaza imaginea intr-o noua fereastra folosind titlul title
 def showImage(title, img):
 	width, height = img.size
 	dispWindow = Tk()
@@ -129,7 +149,7 @@ def getArgVal(argCommand):
 			return sys.argv[i + 1]
 	return
 
-# Incarca fisierul specificat de argumentele de intrare
+# Incarca imaginea specificata de argumentul de intrare
 # sau fisierul default
 def getInputImage():
 	fileName = getArgVal("-f")
@@ -164,6 +184,7 @@ def thresholdImageArea(image, startPoint, endPoint, threshValue):
 	return image
 
 
+# Obtine limitele ferestrei window considerand dimensiunile imaginii workImage
 def getMaxWinDimensions(workImage, window):
 	width, height = workImage.size
 
@@ -208,7 +229,8 @@ def applyThresholdToWindow(image, thresh, window):
 
 # Obtine o copie a imaginii image, segmentata cu o valoare de
 # threshold calculata pentru ferestre de winDim x winDim pixeli
-def getAdaptiveThreshImg(image, winDim):
+# folosind cele 2 metode de calcul ale valorii de threshold (medie + Otsu)
+def getAdaptiveThreshImgs(image, winDim):
 	meanImage = image.copy()
 	otsuImage = image.copy()
 	width, height = meanImage.size
@@ -225,47 +247,57 @@ def getAdaptiveThreshImg(image, winDim):
 			
 			otsuThresh = getOtsuThreshForWindow(windowPixels)
 			applyThresholdToWindow(otsuImage, otsuThresh, window)
-			
-			# TODO : foloseste fereastra pentru a calcula thresholdul
-			# si aplica-l pixelilor din fereastra
+	
 	return meanImage, otsuImage
 
+# Obtine histograma imaginii definite de pixelii windowPixels
 def histogram(windowPixels):
 	size = len(windowPixels)
 	hist = [0] * 256
 
 	for px in range(size):
+		# Pastreaza in vectorul hist numarul de aparitii ale 
+		# fiecarei nuante de gri din vectorul de pixeli windowPixels
 		gray_level = windowPixels[px][0]
 		hist[gray_level] = hist[gray_level] + 1
 	return hist
 
+# Calculeaza valoarea de threshold a ferestrei ce contine pixelii 
+# windowPixels prin metoda Otsu
+# Aceasta metoda presupune impartirea pixelilor in 2 clase 
+# (pixeli de fundal si pixeli de interes) pentru fiecare threshold posibil (0-255).
+# Apoi, pentru fiecare clasa de pixeli se va calcula ponderea clasei in numarul total de pixeli.
+# Folosind aceste ponderi cat si sumele pixelilor din fiecare clasa, se urmareste maximizarea 
+# variatiei dintre cele 2 clase (delimitarea lor cat mai bine)
 def getOtsuThreshForWindow(windowPixels):
-	# prima data luam datele din histograma 
+	# Obtine histograma ferestrei de pixeli
 	hist = histogram(windowPixels) 
-	sum_all = 0
-	# sum the values of all background pixels
+	sumAll = 0
+	# Calculeaza suma tuturor pixelilor din fereastra
 	for t in range(256):
-		sum_all += t * hist[t]
-		
-	sum_back, w_back, w_fore, var_max, threshold = 0, 0, 0, 0, 0
+		sumAll += t * hist[t]
+	
+	# Defineste variabile pentru suma pixelilor de fundal, ponderea pixelilor de fundal, ponderea 
+	# pixelilor de interes,  variatia maxima si valoarea de threshold
+	sumBackPixels, weightBackPixels, weightFrontPixels, maxVariance, threshold = 0, 0, 0, 0, 0
 	total = len(windowPixels)
 
-	# go over all possible thresholds
+	# Parcurge toate thresholdurile posibile
 	for t in range(256):
-		# update weights
-		w_back += hist[t]
-		if (w_back == 0): continue
-		w_fore = total - w_back
-		if (w_fore == 0) : break
-		# calculate classes means
-		sum_back += t * hist[t]
-		mean_back = sum_back / w_back
-		mean_fore = (sum_all - sum_back) / w_fore
-		# Calculate Between Class Variance
-		var_between = w_back * w_fore * (mean_back - mean_fore) ** 2 
-		# a new maximum is found?
-		if(var_between > var_max):
-			var_max = var_between
+		# Calculeaza ponderea pixelilor de fundal
+		weightBackPixels += hist[t]
+		if (weightBackPixels == 0): continue
+		weightFrontPixels = total - weightBackPixels
+		if (weightFrontPixels == 0) : break
+		# Calculeaza media fiecarei clase de pixeli
+		sumBackPixels += t * hist[t]
+		meanBackPixels = sumBackPixels / weightBackPixels
+		meanFrontPixels = (sumAll - sumBackPixels) / weightFrontPixels
+		# Calculeaza variatia dintre clase
+		inBetweenVariance = weightBackPixels * weightFrontPixels * (meanBackPixels - meanFrontPixels) ** 2 
+		# Retine variatia maxima si valoarea de threshold aferenta acestei variatii
+		if(inBetweenVariance > maxVariance):
+			maxVariance = inBetweenVariance
 			threshold = t
 
 	return threshold
