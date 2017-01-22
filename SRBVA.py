@@ -21,10 +21,11 @@ import math
 import sys
 
 from PIL import Image, ImageTk
+from pip._vendor.pkg_resources import working_set
 
 
 DEFAULT_FILE = "numbers.jpg"
-DEFAULT_DIM = 15
+DEFAULT_DIM = 30
 
 GLOBAL_THRESHOLD_LOW = 50
 GLOBAL_THRESHOLD_MED = 125
@@ -58,8 +59,52 @@ def main():
 	showImage("Imaginea segmentata cu threshold adaptiv", imAdapThresh)
 	# imAdapThresh.show()
 	showImage("Imaginea segmentata cu threshold prin metoda Otsu", otsuAdapThresh)
+	
+	# Imagine segmentata cu threshold calculat pe vecinatati de pixeli
+	imNeighbourAdap = getAdaptiveNeighbourImg(im, winDim)
+	showImage("Imaginea segmentata cu threshold calculat per pixel", imNeighbourAdap)
 
 	return
+
+def getAdaptiveNeighbourImg(im, winDim):
+	workImage = im.copy()
+	pixels = workImage.load()
+	width, height = workImage.size
+	for x in range(width):
+		for y in range(height):
+			thresh = getNeighbourThresh(x, y, im, winDim)
+			if pixels[x, y][0] > thresh:
+				pixels[x, y] = (255, 255)
+			else:
+				pixels[x, y] = (0, 255)
+	return workImage
+
+def getNeighbourThresh(crtX, crtY, im, winDim):
+	pixels = im.load()
+	width, height = im.size
+	nrOfPixels, sumOfPixels = 0, 0
+	lowerX = crtX - (winDim /2)
+	if( lowerX < 0 ): lowerX = 0
+		
+	higherX = crtX + (winDim / 2)
+	if( higherX >= width ): higherX = width
+	
+	lowerY = crtY - (winDim /2)
+	if( lowerY < 0 ): lowerY = 0
+	
+	higherY = crtY + (winDim / 2)
+	if( higherY >= height ): higherY = height
+	
+	
+	for x in range( lowerX, higherX ):
+		for y in range( lowerY, higherY ):
+			# Testeaza pixelul curent pentru a nu-l lua in calcul
+			if( x == crtX and y == crtY ):
+				continue
+			nrOfPixels += 1
+			sumOfPixels += pixels[x, y][0]
+	
+	return sumOfPixels / nrOfPixels
 
 # Afiseaza imaginea intr-o noua fereastra
 def showImage(title, img):
